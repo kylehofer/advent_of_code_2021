@@ -93,6 +93,36 @@ uint16_t depth_scan_sum(const uint16_t input[], uint16_t size, uint8_t scans_cou
     return count;
 }
 
+/**
+ * A workmate informed me about how the comparison can be made a lot easier.
+ * As we're trying to see the difference in the sum of sequences of numbers, you can
+ * use a trick where you only compare the difference of the sums.
+ * For example if we have the sequence, A, B, C, D, and we want to compare A + B + C, and B + C + D
+ * We only need to compare A and D, as B/C are the same. 
+ * @param input A pointer to our array scans
+ * @param size The length of the scans
+ * @param scans_count The number of scans to add up
+ * @return A count of the number of depth increases
+ */
+uint16_t depth_scan_sum_optimized(const uint16_t input[], uint16_t size, uint8_t scans_count)
+{
+    uint8_t step_size = sizeof(uint16_t);
+    uint8_t scan_gap = (scans_count * step_size);
+    uint16_t count = 0;
+
+
+    uint16_t lower = (uint16_t)input;
+    uint16_t upper = lower + size - scan_gap;
+    
+    for (uint16_t i = lower; i < upper; i+=step_size)
+    {
+        uint16_t x = pgm_read_word_near(i);
+        uint16_t y = pgm_read_word_near(i + scan_gap);
+        count += x < y;
+    }
+    return count;
+}
+
 void setup()
 {
     Serial.begin(115200);
@@ -101,7 +131,7 @@ void setup()
     while (!Serial) {}
 
     // Small delay because I was having Serial Print issues
-    delay(500);
+    delay(1000);
 
     uint16_t startTime;
     uint16_t endTime;
@@ -132,6 +162,17 @@ void setup()
     Serial.print(duration);
     Serial.println(F(" μs"));
     Serial.print(F("depth_scan_sum value: "));
+    Serial.println(count);
+
+    startTime = micros();
+    count = depth_scan_sum_optimized(DEPTH_INPUT, sizeof(DEPTH_INPUT), 3);
+    endTime = micros();
+    duration = endTime - startTime;
+    
+    Serial.print(F("depth_scan_sum_optimized time: "));
+    Serial.print(duration);
+    Serial.println(F(" μs"));
+    Serial.print(F("depth_scan_sum_optimized value: "));
     Serial.println(count);
 }
 
