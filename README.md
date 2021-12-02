@@ -27,7 +27,7 @@ depth_scan_sum value: 1538
 depth_scan_sum_optimized time: 4308 μs
 depth_scan_sum_optimized value: 1538
 
-## --- Day 1: Dive! ---
+## --- Day 2: Dive! ---
 
 ### Part 1
 Pretty simple problem where we need to process an action with a value. As we only had 3 actions I used an enum, which also let me easily keep the code input the same without having to translate any values. I then loop through the input stepping 16 bits per step (8 bit for the command, 8 bit for the value), while keeping a count of the depth and horizontal position. Only issues was chosing the correct datatypes, as the output was larger than an unsigned 16 bit integer.
