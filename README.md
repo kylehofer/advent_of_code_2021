@@ -31,18 +31,23 @@ A workmate informed me about how the comparison can be made a lot easier. As we'
 ### Output
 
 Beginning Day 1 - Part 1
+
 depth_scan time: 3096 μs
+
 depth_scan value: 1502
+
 Beginning Day 1 - Part 2
+
 depth_scan_sum time: 34532 μs
+
 depth_scan_sum value: 1538
+
 depth_scan_sum_optimized time: 4308 μs
+
 depth_scan_sum_optimized value: 1538
   
 
-## --- Day 2: Dive! ---
-
-  
+## --- Day 2: Dive! ---  
 
 ### Part 1
 
@@ -54,13 +59,16 @@ Pretty simple problem where we need to process an action with a value. As we onl
 
 This additionally problem didn't need much extra code, and a lot of the previous code was reused. However datatypes reared their ugly head as making assumptions like the aim staying within an 8bit integer was wrong.
 
-  
-
 ### Output
 
 Beginning Day 2 - Part 1
+
 dive_controls time: 1664 μs
+
 dive_controls value: 1499229
+
 Beginning Day 2 - Part 2
+
 dive_controls_with_aim time: 2412 μs
+
 dive_controls_with_aim value: 1340836560
