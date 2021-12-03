@@ -22,8 +22,6 @@ uint32_t dive_controls(const uint8_t input[], uint16_t size)
 
     uint16_t lower = (uint16_t)input;
     uint16_t upper = lower + size;
-    
-    uint16_t current = pgm_read_word_near(upper);
 
     for (uint16_t i = lower; i < upper; i += step_size)
     {
@@ -66,8 +64,7 @@ uint32_t dive_controls_with_aim(const uint8_t input[], uint16_t size)
 
     uint16_t lower = (uint16_t)input;
     uint16_t upper = lower + size;
-    
-    uint16_t current = pgm_read_word_near(upper);
+
 
     for (uint16_t i = lower; i < upper; i += step_size)
     {

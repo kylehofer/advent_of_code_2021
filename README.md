@@ -57,7 +57,7 @@ Pretty simple problem where we need to process an action with a value. As we onl
 
 ### Part 2
 
-This additionally problem didn't need much extra code, and a lot of the previous code was reused. However datatypes reared their ugly head as making assumptions like the aim staying within an 8bit integer was wrong.
+Part 2 didn't need much extra code, and a lot of the previous code was reused. However datatypes reared their ugly head as making assumptions like the aim staying within an 8bit integer was wrong.
 
 ### Output
 
@@ -72,3 +72,31 @@ Beginning Day 2 - Part 2
 dive_controls_with_aim time: 2412 μs
 
 dive_controls_with_aim value: 1340836560
+
+## --- Day 3: Binary Diagnostic ---  
+
+### Part 1
+
+This was a lot more fun! I didn't have too much of an issue with part 1, other than figuring out a way of dynamically handling the length of the bits in the input. While this wasn't important was dropped later, I did like the solution I came up with. The code isn't that fast and I have this feeling there must be more optimized approaches but I didn't think of any for part 1. I also optimized this function by only counting the 1's and then taking the inverse of the result for the alternate value.
+
+### Part 2
+
+This is where the real fun began! I really wanted to avoid over processing and wanted to attempt to be as effecient! I thought about methods of handling values or storing the values that match either filter, however I believe I'd very easily max the ram and instead opted for processing over caching. I instead build a progressive filter that gets applied to each value during each pass of the loop. I also employeed some branchless techniques to speed up the core of the loop, which almost doubled the speed compared to using branches. I beieve there's some optimization I add where instead of bitshifting each value I read from progmem, I could apply a bit mask, as I think I could save a couple cycles total with this approach. I was really happy to see this approach was much faster than Part 1!
+
+### Output
+
+Beginning Day 3 - Part 1
+
+process_report time: 51092 μs
+
+process_report value: 1092896
+
+Beginning Day 3 - Part 2
+
+process_report_detailed_branchless time: 27920 μs
+
+process_report_detailed_branchless value: 4672151
+
+process_report_detailed_branched time: 49212 μs
+
+process_report_detailed_branched value: 4672151
