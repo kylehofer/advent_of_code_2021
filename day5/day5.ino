@@ -9,6 +9,8 @@
 
 #define SERIAL_BUFFER_SIZE 8
 
+#define MAX_OUTPUT 800
+
 
 typedef struct point
 {
@@ -27,30 +29,62 @@ enum line_direction {
 };
 
 
-void add(uint16_t x, uint16_t y, point *item)
+// void add(uint16_t x, uint16_t y, point *item)
+// {
+//     static uint16_t total = 0;
+//     while ((item->x != x || item->y != y) && item->tail)
+//     {
+//         item = item->tail;
+//     }
+
+//     if ((item->x != x || item->y != y) && !item->tail) {
+//         total++;
+//         Serial.println(total);
+//         item->tail = new point_t(x, y);
+//     }
+// }
+
+// uint16_t calculate(point *item)
+// {
+//     uint16_t result = 0;
+//     while ((item = item->tail) != NULL) {result++;}
+//     return result;
+// }
+
+uint16_t calculate(uint16_t *start)
+{
+    uint16_t index = 0;
+    while (start[index] != 0xFFFF) {index += 2;}
+    return index >> 1;
+}
+
+void add(uint16_t x, uint16_t y, uint16_t *start)
 {
     static uint16_t total = 0;
-    while ((item->x != x || item->y != y) && item->tail)
+    uint16_t index = 0;
+    uint16_t temp;
+
+    while (((temp = start[index]) != x || start[index + 1] != y) && temp != 0xFFFF && index < MAX_OUTPUT)
     {
-        item = item->tail;
-    }
+        index += 2;
+    } 
 
-    if ((item->x != x || item->y != y) && !item->tail) {
-        total++;
-        Serial.println(total);
-        item->tail = new point_t(x, y);
+    if (temp == 0xFFFF && index < MAX_OUTPUT) {        
+        Serial.println(++total);
+
+        // Serial.print(F("index: "));
+        // Serial.print(index);
+        // Serial.print(F(" x: "));
+        // Serial.print(x);
+        // Serial.print(F(" y: "));
+        // Serial.print(y);
+        // Serial.print(F(" temp: "));
+        // Serial.println(temp);
+
+        start[index] = x;
+        start[index + 1] = y;
     }
 }
-
-uint16_t calculate(point *item)
-{
-    uint16_t result = 0;
-    while ((item = item->tail) != NULL) {result++;}
-    return result;
-}
-
-
-
 
 /**
  * Given the input of a list of values, this function will loop through and count the number
@@ -72,19 +106,11 @@ uint16_t process_report(const uint16_t input[], const uint16_t size)
     const uint16_t lower = (uint16_t)input;
     const uint16_t upper = lower + (size);
 
-    uint16_t buffer[2000];
+    uint16_t in_h, in_v, x_h, x_v;
 
-    memset(buffer, 0, 2000);
+    in_h = in_v = x_h = x_v = 0;
 
-    for (size_t i = 0; i < 2000; i++)
-    {
-        buffer[i];
-    }
-    
-
-    return;
-
-    point_t *counter = new point_t();
+    uint16_t result = 0;
 
     for (uint16_t l1 = lower; l1 < upper; ) //l1 += step_size
     {
@@ -165,39 +191,32 @@ uint16_t process_report(const uint16_t input[], const uint16_t size)
                 {
                     if (l1y1 == l2y1 && ((l1x1 >= l2x1 && l1x1 <= l2x2) || (l1x2 >= l2x1 && l1x2 <= l2x2)))
                     {
-                        uint16_t point_max = min(l1x2, l2x2);
+                        // Serial.println(F("Inline Horizontal"));
+                        
 
                         // Serial.print(F("X Match Min: "));
                         // Serial.print(max(l1x1, l2x1));
                         // Serial.print(F(" max: "));
-                        // Serial.print(point_max);
+                        // Serial.print(min(l1x2, l2x2));
                         // Serial.print(F(" y: "));
                         // Serial.println(l1y1);
-                        for (uint16_t i = max(l1x1, l2x1); i <= point_max; i++)
-                        {
-                            
-                            add(i, l1y1, counter);
-                        }                        
+                        in_h += min(l1x2, l2x2) - max(l1x1, l2x1) + 1;
+                        result += min(l1x2, l2x2) - max(l1x1, l2x1) + 1; 
                     }
                 }
                 else
                 {
                     if (l1x1 == l2x1 && ((l1y1 >= l2y1 && l1y1 <= l2y2) || (l1y2 >= l2y1 && l1y2 <= l2y2)))
                     {
-                        uint16_t point_max = min(l1y2, l2y2);
-
                         // Serial.print(F("Y Match Min: "));
                         // Serial.print(max(l1y1, l2y1));
                         // Serial.print(F(" max: "));
-                        // Serial.print(point_max);
+                        // Serial.print(min(l1y2, l2y2));
                         // Serial.print(F(" x: "));
                         // Serial.println(l1x1);
-                       
-                        for (uint16_t i = max(l1y1, l2y1); i <= point_max; i++)
-                        {
-                            
-                            add(l1x1, i, counter);
-                        }   
+
+                        in_v += min(l1y2, l2y2) - max(l1y1, l2y1) + 1;
+                        result += min(l1y2, l2y2) - max(l1y1, l2y1) + 1;
                     }
                 }
                 continue;
@@ -206,20 +225,35 @@ uint16_t process_report(const uint16_t input[], const uint16_t size)
             {
                 if (l2x1 >= l1x1 && l2x1 <= l1x2 && l1y1 >= l2y1 && l1y1 <= l2y2)
                 {
-                    add(l1x1, l2y1, counter);
+                    x_h++;
+                    result++;
+                    // add(l1x1, l2y1, output);
                 }
             }
             else
             {
                 if (l1x1 >= l2x1 && l1x1 <= l2x2 && l2y1 >= l1y1 && l2y1 <= l1y2)
                 {
-                    add(l2x1, l1y1, counter);
+                    x_v++;
+                    result++;
+                    // add(l2x1, l1y1, output);
                 }
             }
         }
     }
+
+    Serial.print(F("in_h "));
+    Serial.print(in_h);
+    Serial.print(F(" in_v: "));
+    Serial.print(in_v);
+    Serial.print(F(" x_h: "));
+    Serial.print(x_h);
+    Serial.print(F(" x_v: "));
+    Serial.print(x_v);
+    Serial.print(F(" result: "));
+    Serial.println(result);
     
-    return calculate(counter);
+    return result;
 }
 
 void setup()
