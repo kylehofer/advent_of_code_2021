@@ -101,8 +101,6 @@ uint16_t process_report(const uint16_t input[], const uint16_t size)
 {
     const uint8_t data_size = sizeof(uint16_t);
 
-    const uint8_t step_size = data_size << 2; // Stepping the size of an enum and 8bit command
-
     const uint16_t lower = (uint16_t)input;
     const uint16_t upper = lower + (size);
 
@@ -121,8 +119,10 @@ uint16_t process_report(const uint16_t input[], const uint16_t size)
 
         l1 += data_size;
 
+        // Ignore Diagnols
         if ((l1x1 != l1x2) && (l1y1 != l1y2)) continue;
 
+        // Flip so x1/y1 is always lower than x2/y2
         if (l1x1 > l1x2)
         {
             l1x1 ^= l1x2;
@@ -146,19 +146,22 @@ uint16_t process_report(const uint16_t input[], const uint16_t size)
         // Serial.print(F(" l1y2: "));
         // Serial.println(l1y2);
 
+        // Getting the line orientation
         line_direction l1d = l1x1 == l1x2 ? verticle : horizontal;
-
         
+        // Comparing L1 to all upcoming values
         for (uint16_t l2 = l1; l2 < upper; l2 += data_size)
         {
-            
+            // Reading the 4 16 bit values
             uint16_t l2x1 = pgm_read_word_near(l2);
             uint16_t l2y1 = pgm_read_word_near(l2 += data_size);
             uint16_t l2x2 = pgm_read_word_near(l2 += data_size);
             uint16_t l2y2 = pgm_read_word_near(l2 += data_size);
 
+            // Ignore Diagnols
             if ((l2x1 != l2x2) && (l2y1 != l2y2)) continue;
 
+            // Flip so x1/y1 is always lower than x2/y2
             if (l2x1 > l2x2)
             {
                 l2x1 ^= l2x2;
@@ -183,16 +186,17 @@ uint16_t process_report(const uint16_t input[], const uint16_t size)
             // Serial.print(F(" l2y2: "));
             // Serial.println(l2y2);
 
+            // Getting the line orientation
             line_direction l2d = l2x1 == l2x2 ? verticle : horizontal;
 
+            // Line1/2 Orientation are the same
             if (l1d == l2d)
             {
-                if (l1d == horizontal)
+                if (l1d == horizontal) // Comparing horizontal lines, checking they're on the same y value and overlap on x values
                 {
                     if (l1y1 == l2y1 && ((l1x1 >= l2x1 && l1x1 <= l2x2) || (l1x2 >= l2x1 && l1x2 <= l2x2)))
                     {
                         // Serial.println(F("Inline Horizontal"));
-                        
 
                         // Serial.print(F("X Match Min: "));
                         // Serial.print(max(l1x1, l2x1));
@@ -200,11 +204,13 @@ uint16_t process_report(const uint16_t input[], const uint16_t size)
                         // Serial.print(min(l1x2, l2x2));
                         // Serial.print(F(" y: "));
                         // Serial.println(l1y1);
-                        in_h += min(l1x2, l2x2) - max(l1x1, l2x1) + 1;
-                        result += min(l1x2, l2x2) - max(l1x1, l2x1) + 1; 
+
+                        // Incrementing by the cross over length
+                        in_h += (min(l1x2, l2x2) - max(l1x1, l2x1)) + 1;
+                        result += (min(l1x2, l2x2) - max(l1x1, l2x1)) + 1; 
                     }
                 }
-                else
+                else  // Comparing verticle lines, checking they're on the same x value and overlap on y values
                 {
                     if (l1x1 == l2x1 && ((l1y1 >= l2y1 && l1y1 <= l2y2) || (l1y2 >= l2y1 && l1y2 <= l2y2)))
                     {
@@ -215,13 +221,14 @@ uint16_t process_report(const uint16_t input[], const uint16_t size)
                         // Serial.print(F(" x: "));
                         // Serial.println(l1x1);
 
-                        in_v += min(l1y2, l2y2) - max(l1y1, l2y1) + 1;
-                        result += min(l1y2, l2y2) - max(l1y1, l2y1) + 1;
+                        // Incrementing by the cross over length
+                        in_v += (min(l1y2, l2y2) - max(l1y1, l2y1)) + 1;
+                        result += (min(l1y2, l2y2) - max(l1y1, l2y1)) + 1;
                     }
                 }
                 continue;
             }
-            else if (l1d == horizontal)
+            else if (l1d == horizontal) // L1 is horizontal, L2 is verticle. Verifying they cross
             {
                 if (l2x1 >= l1x1 && l2x1 <= l1x2 && l1y1 >= l2y1 && l1y1 <= l2y2)
                 {
@@ -230,7 +237,7 @@ uint16_t process_report(const uint16_t input[], const uint16_t size)
                     // add(l1x1, l2y1, output);
                 }
             }
-            else
+            else  // L1 is verticle, L2 is horizontal. Verifying they cross
             {
                 if (l1x1 >= l2x1 && l1x1 <= l2x2 && l2y1 >= l1y1 && l2y1 <= l1y2)
                 {
