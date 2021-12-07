@@ -9,82 +9,12 @@
 
 #define SERIAL_BUFFER_SIZE 8
 
-#define MAX_OUTPUT 800
-
-
-typedef struct point
-{
-    uint16_t x;
-    uint16_t y;
-    point *tail;
-
-    point() : x(0xFFFF), y(0xFFFF), tail(NULL) {}
-    point(uint16_t x, uint16_t y) : x(x), y(y), tail(NULL) { }
-} point_t;
-
-
+#define FLAGS_SIZE (920 >> 3)
+#define set_flag(f,g,b) f[g] & b ? 0 : f[g] |= b
 
 enum line_direction {
     verticle, horizontal
 };
-
-
-// void add(uint16_t x, uint16_t y, point *item)
-// {
-//     static uint16_t total = 0;
-//     while ((item->x != x || item->y != y) && item->tail)
-//     {
-//         item = item->tail;
-//     }
-
-//     if ((item->x != x || item->y != y) && !item->tail) {
-//         total++;
-//         Serial.println(total);
-//         item->tail = new point_t(x, y);
-//     }
-// }
-
-// uint16_t calculate(point *item)
-// {
-//     uint16_t result = 0;
-//     while ((item = item->tail) != NULL) {result++;}
-//     return result;
-// }
-
-uint16_t calculate(uint16_t *start)
-{
-    uint16_t index = 0;
-    while (start[index] != 0xFFFF) {index += 2;}
-    return index >> 1;
-}
-
-void add(uint16_t x, uint16_t y, uint16_t *start)
-{
-    static uint16_t total = 0;
-    uint16_t index = 0;
-    uint16_t temp;
-
-    while (((temp = start[index]) != x || start[index + 1] != y) && temp != 0xFFFF && index < MAX_OUTPUT)
-    {
-        index += 2;
-    } 
-
-    if (temp == 0xFFFF && index < MAX_OUTPUT) {        
-        Serial.println(++total);
-
-        // Serial.print(F("index: "));
-        // Serial.print(index);
-        // Serial.print(F(" x: "));
-        // Serial.print(x);
-        // Serial.print(F(" y: "));
-        // Serial.print(y);
-        // Serial.print(F(" temp: "));
-        // Serial.println(temp);
-
-        start[index] = x;
-        start[index + 1] = y;
-    }
-}
 
 /**
  * Given the input of a list of values, this function will loop through and count the number
@@ -104,146 +34,291 @@ uint16_t process_report(const uint16_t input[], const uint16_t size)
     const uint16_t lower = (uint16_t)input;
     const uint16_t upper = lower + (size);
 
+    uint8_t flags[FLAGS_SIZE];
+
     uint16_t in_h, in_v, x_h, x_v;
 
     in_h = in_v = x_h = x_v = 0;
 
     uint16_t result = 0;
 
-    for (uint16_t l1 = lower; l1 < upper; ) //l1 += step_size
+    for (uint16_t line_1_index = lower; line_1_index < upper; ) //line_1_index += step_size
     {
-        uint16_t l1x1 = pgm_read_word_near(l1);
-        uint16_t l1y1 = pgm_read_word_near(l1 += data_size);
-        uint16_t l1x2 = pgm_read_word_near(l1 += data_size);
-        uint16_t l1y2 = pgm_read_word_near(l1 += data_size);
+        uint16_t sta = line_1_index;
+        uint16_t line_1_x_1 = pgm_read_word_near(line_1_index);
+        uint16_t line_1_y_1 = pgm_read_word_near(line_1_index += data_size);
+        uint16_t line_1_x_2 = pgm_read_word_near(line_1_index += data_size);
+        uint16_t line_1_y_2 = pgm_read_word_near(line_1_index += data_size);
 
-        l1 += data_size;
+        line_1_index += data_size;
 
         // Ignore Diagnols
-        if ((l1x1 != l1x2) && (l1y1 != l1y2)) continue;
+        if ((line_1_x_1 != line_1_x_2) && (line_1_y_1 != line_1_y_2)) continue;
 
         // Flip so x1/y1 is always lower than x2/y2
-        if (l1x1 > l1x2)
+        if (line_1_x_1 > line_1_x_2)
         {
-            l1x1 ^= l1x2;
-            l1x2 ^= l1x1;
-            l1x1 ^= l1x2;
+            line_1_x_1 ^= line_1_x_2;
+            line_1_x_2 ^= line_1_x_1;
+            line_1_x_1 ^= line_1_x_2;
         }
 
-        if (l1y1 > l1y2)
+        if (line_1_y_1 > line_1_y_2)
         {
-            l1y1 ^= l1y2;
-            l1y2 ^= l1y1;
-            l1y1 ^= l1y2;
+            line_1_y_1 ^= line_1_y_2;
+            line_1_y_2 ^= line_1_y_1;
+            line_1_y_1 ^= line_1_y_2;
         }
 
-        // Serial.print(F("l1x1: "));
-        // Serial.print(l1x1);
-        // Serial.print(F(" l1y1: "));
-        // Serial.print(l1y1);
-        // Serial.print(F(" l1x2: "));
-        // Serial.print(l1x2);
-        // Serial.print(F(" l1y2: "));
-        // Serial.println(l1y2);
+        // Serial.print(F("line_1_x_1: "));
+        // Serial.print(line_1_x_1);
+        // Serial.print(F(" line_1_y_1: "));
+        // Serial.print(line_1_y_1);
+        // Serial.print(F(" line_1_x_2: "));
+        // Serial.print(line_1_x_2);
+        // Serial.print(F(" line_1_y_2: "));
+        // Serial.println(line_1_y_2);
 
         // Getting the line orientation
-        line_direction l1d = l1x1 == l1x2 ? verticle : horizontal;
-        
-        // Comparing L1 to all upcoming values
-        for (uint16_t l2 = l1; l2 < upper; l2 += data_size)
+        line_direction line_1_direction = line_1_x_1 == line_1_x_2 ? verticle : horizontal;
+
+        memset(flags, 0, FLAGS_SIZE);
+
+        // Comparing line_1_index to all upcoming values
+        for (uint16_t line_2_index = lower; line_2_index < sta; line_2_index += data_size)
         {
             // Reading the 4 16 bit values
-            uint16_t l2x1 = pgm_read_word_near(l2);
-            uint16_t l2y1 = pgm_read_word_near(l2 += data_size);
-            uint16_t l2x2 = pgm_read_word_near(l2 += data_size);
-            uint16_t l2y2 = pgm_read_word_near(l2 += data_size);
+            uint16_t line_2_x_1 = pgm_read_word_near(line_2_index);
+            uint16_t line_2_y_1 = pgm_read_word_near(line_2_index += data_size);
+            uint16_t line_2_x_2 = pgm_read_word_near(line_2_index += data_size);
+            uint16_t line_2_y_2 = pgm_read_word_near(line_2_index += data_size);
 
             // Ignore Diagnols
-            if ((l2x1 != l2x2) && (l2y1 != l2y2)) continue;
+            if ((line_2_x_1 != line_2_x_2) && (line_2_y_1 != line_2_y_2)) continue;
 
             // Flip so x1/y1 is always lower than x2/y2
-            if (l2x1 > l2x2)
+            if (line_2_x_1 > line_2_x_2)
             {
-                l2x1 ^= l2x2;
-                l2x2 ^= l2x1;
-                l2x1 ^= l2x2;
+                line_2_x_1 ^= line_2_x_2;
+                line_2_x_2 ^= line_2_x_1;
+                line_2_x_1 ^= line_2_x_2;
             }
 
-            if (l2y1 > l2y2)
+            if (line_2_y_1 > line_2_y_2)
             {
-                l2y1 ^= l2y2;
-                l2y2 ^= l2y1;
-                l2y1 ^= l2y2;
+                line_2_y_1 ^= line_2_y_2;
+                line_2_y_2 ^= line_2_y_1;
+                line_2_y_1 ^= line_2_y_2;
             }
 
             
-            // Serial.print(F("l2x1: "));
-            // Serial.print(l2x1);
-            // Serial.print(F(" l2y1: "));
-            // Serial.print(l2y1);
-            // Serial.print(F(" l2x2: "));
-            // Serial.print(l2x2);
-            // Serial.print(F(" l2y2: "));
-            // Serial.println(l2y2);
+            // Serial.print(F("line_2_x_1: "));
+            // Serial.print(line_2_x_1);
+            // Serial.print(F(" line_2_y_1: "));
+            // Serial.print(line_2_y_1);
+            // Serial.print(F(" line_2_x_2: "));
+            // Serial.print(line_2_x_2);
+            // Serial.print(F(" line_2_y_2: "));
+            // Serial.println(line_2_y_2);
 
             // Getting the line orientation
-            line_direction l2d = l2x1 == l2x2 ? verticle : horizontal;
+            line_direction line_2_direction = line_2_x_1 == line_2_x_2 ? verticle : horizontal;
 
             // Line1/2 Orientation are the same
-            if (l1d == l2d)
+            if (line_1_direction == line_2_direction)
             {
-                if (l1d == horizontal) // Comparing horizontal lines, checking they're on the same y value and overlap on x values
+                if (line_1_direction == horizontal) // Comparing horizontal lines, checking they're on the same y value and overlap on x values
                 {
-                    if (l1y1 == l2y1 && ((l1x1 >= l2x1 && l1x1 <= l2x2) || (l1x2 >= l2x1 && l1x2 <= l2x2)))
+                    if (line_1_y_1 == line_2_y_1 && ((line_1_x_1 >= line_2_x_1 && line_1_x_1 <= line_2_x_2) || (line_1_x_2 >= line_2_x_1 && line_1_x_2 <= line_2_x_2)))
                     {
                         // Serial.println(F("Inline Horizontal"));
 
                         // Serial.print(F("X Match Min: "));
-                        // Serial.print(max(l1x1, l2x1));
+                        // Serial.print(max(line_1_x_1, line_2_x_1));
                         // Serial.print(F(" max: "));
-                        // Serial.print(min(l1x2, l2x2));
+                        // Serial.print(min(line_1_x_2, line_2_x_2));
                         // Serial.print(F(" y: "));
-                        // Serial.println(l1y1);
+                        // Serial.println(line_1_y_1);
 
                         // Incrementing by the cross over length
-                        in_h += (min(l1x2, l2x2) - max(l1x1, l2x1)) + 1;
-                        result += (min(l1x2, l2x2) - max(l1x1, l2x1)) + 1; 
+
+                        uint16_t minimum = max(line_1_x_1, line_2_x_1);
+                        uint16_t start = minimum - line_1_x_1;
+                        uint16_t maximum = (min(line_1_x_2, line_2_x_2) - minimum) + start;
+
+                        for (size_t i = start; i <= maximum; i++)
+                        {
+                            set_flag(flags, i >> 3, _BV(i % 8));                       
+                        }
                     }
                 }
                 else  // Comparing verticle lines, checking they're on the same x value and overlap on y values
                 {
-                    if (l1x1 == l2x1 && ((l1y1 >= l2y1 && l1y1 <= l2y2) || (l1y2 >= l2y1 && l1y2 <= l2y2)))
+                    if (line_1_x_1 == line_2_x_1 && ((line_1_y_1 >= line_2_y_1 && line_1_y_1 <= line_2_y_2) || (line_1_y_2 >= line_2_y_1 && line_1_y_2 <= line_2_y_2)))
                     {
                         // Serial.print(F("Y Match Min: "));
-                        // Serial.print(max(l1y1, l2y1));
+                        // Serial.print(max(line_1_y_1, line_2_y_1));
                         // Serial.print(F(" max: "));
-                        // Serial.print(min(l1y2, l2y2));
+                        // Serial.print(min(line_1_y_2, line_2_y_2));
                         // Serial.print(F(" x: "));
-                        // Serial.println(l1x1);
+                        // Serial.println(line_1_x_1);
+
+                        uint16_t minimum = max(line_1_y_1, line_2_y_1);
+                        uint16_t start = minimum - line_1_y_1;
+                        uint16_t maximum = min(line_1_y_2, line_2_y_2) - minimum + start;
+
+                        for (size_t i = start; i <= maximum; i++)
+                        {
+                            set_flag(flags, i >> 3, _BV(i % 8));                          
+                        }
+                        
 
                         // Incrementing by the cross over length
-                        in_v += (min(l1y2, l2y2) - max(l1y1, l2y1)) + 1;
-                        result += (min(l1y2, l2y2) - max(l1y1, l2y1)) + 1;
                     }
                 }
-                continue;
             }
-            else if (l1d == horizontal) // L1 is horizontal, L2 is verticle. Verifying they cross
+            else if (line_1_direction == horizontal) // line_1_index is horizontal, line_2_index is verticle. Verifying they cross
             {
-                if (l2x1 >= l1x1 && l2x1 <= l1x2 && l1y1 >= l2y1 && l1y1 <= l2y2)
+                if (line_2_x_1 >= line_1_x_1 && line_2_x_1 <= line_1_x_2 && line_1_y_1 >= line_2_y_1 && line_1_y_1 <= line_2_y_2)
                 {
-                    x_h++;
-                    result++;
-                    // add(l1x1, l2y1, output);
+                    uint16_t difference = line_1_x_2 - line_1_x_1;
+                    set_flag(flags, difference >> 3, _BV(difference % 8));
                 }
             }
-            else  // L1 is verticle, L2 is horizontal. Verifying they cross
+            else  // line_1_index is verticle, line_2_index is horizontal. Verifying they cross
             {
-                if (l1x1 >= l2x1 && l1x1 <= l2x2 && l2y1 >= l1y1 && l2y1 <= l1y2)
+                if (line_1_x_1 >= line_2_x_1 && line_1_x_1 <= line_2_x_2 && line_2_y_1 >= line_1_y_1 && line_2_y_1 <= line_1_y_2)
                 {
-                    x_v++;
-                    result++;
-                    // add(l2x1, l1y1, output);
+                    uint16_t difference = line_1_y_2 - line_2_y_1;
+                    set_flag(flags, difference >> 3, _BV(difference % 8));
+                    // add(line_2_x_1, line_1_y_1, output);
+                }
+            }
+        }
+        
+        // Comparing line_1_index to all upcoming values
+        for (uint16_t line_2_index = line_1_index; line_2_index < upper; line_2_index += data_size)
+        {
+            // Reading the 4 16 bit values
+            uint16_t line_2_x_1 = pgm_read_word_near(line_2_index);
+            uint16_t line_2_y_1 = pgm_read_word_near(line_2_index += data_size);
+            uint16_t line_2_x_2 = pgm_read_word_near(line_2_index += data_size);
+            uint16_t line_2_y_2 = pgm_read_word_near(line_2_index += data_size);
+
+            // Ignore Diagnols
+            if ((line_2_x_1 != line_2_x_2) && (line_2_y_1 != line_2_y_2)) continue;
+
+            // Flip so x1/y1 is always lower than x2/y2
+            if (line_2_x_1 > line_2_x_2)
+            {
+                line_2_x_1 ^= line_2_x_2;
+                line_2_x_2 ^= line_2_x_1;
+                line_2_x_1 ^= line_2_x_2;
+            }
+
+            if (line_2_y_1 > line_2_y_2)
+            {
+                line_2_y_1 ^= line_2_y_2;
+                line_2_y_2 ^= line_2_y_1;
+                line_2_y_1 ^= line_2_y_2;
+            }
+
+            
+            // Serial.print(F("line_2_x_1: "));
+            // Serial.print(line_2_x_1);
+            // Serial.print(F(" line_2_y_1: "));
+            // Serial.print(line_2_y_1);
+            // Serial.print(F(" line_2_x_2: "));
+            // Serial.print(line_2_x_2);
+            // Serial.print(F(" line_2_y_2: "));
+            // Serial.println(line_2_y_2);
+
+            // Getting the line orientation
+            line_direction line_2_direction = line_2_x_1 == line_2_x_2 ? verticle : horizontal;
+
+            // Line1/2 Orientation are the same
+            if (line_1_direction == line_2_direction)
+            {
+                if (line_1_direction == horizontal) // Comparing horizontal lines, checking they're on the same y value and overlap on x values
+                {
+                    if (line_1_y_1 == line_2_y_1 && ((line_1_x_1 >= line_2_x_1 && line_1_x_1 <= line_2_x_2) || (line_1_x_2 >= line_2_x_1 && line_1_x_2 <= line_2_x_2)))
+                    {
+                        // Serial.println(F("Inline Horizontal"));
+
+                        // Serial.print(F("X Match Min: "));
+                        // Serial.print(max(line_1_x_1, line_2_x_1));
+                        // Serial.print(F(" max: "));
+                        // Serial.print(min(line_1_x_2, line_2_x_2));
+                        // Serial.print(F(" y: "));
+                        // Serial.println(line_1_y_1);
+
+                        // Incrementing by the cross over length
+
+                        uint16_t minimum = max(line_1_x_1, line_2_x_1);
+                        uint16_t start = minimum - line_1_x_1;
+                        uint16_t maximum = (min(line_1_x_2, line_2_x_2) - minimum) + start;
+
+                        for (size_t i = start; i <= maximum; i++)
+                        {
+                            if (set_flag(flags, i >> 3, _BV(i % 8))) {
+                                in_h++;
+                                result++;
+                            };                          
+                        }
+                    }
+                }
+                else  // Comparing verticle lines, checking they're on the same x value and overlap on y values
+                {
+                    if (line_1_x_1 == line_2_x_1 && ((line_1_y_1 >= line_2_y_1 && line_1_y_1 <= line_2_y_2) || (line_1_y_2 >= line_2_y_1 && line_1_y_2 <= line_2_y_2)))
+                    {
+                        // Serial.print(F("Y Match Min: "));
+                        // Serial.print(max(line_1_y_1, line_2_y_1));
+                        // Serial.print(F(" max: "));
+                        // Serial.print(min(line_1_y_2, line_2_y_2));
+                        // Serial.print(F(" x: "));
+                        // Serial.println(line_1_x_1);
+
+                        uint16_t minimum = max(line_1_y_1, line_2_y_1);
+                        uint16_t start = minimum - line_1_y_1;
+                        uint16_t maximum = min(line_1_y_2, line_2_y_2) - minimum + start;
+
+                        for (size_t i = start; i <= maximum; i++)
+                        {
+                            
+                            if (set_flag(flags, i >> 3, _BV(i % 8))) {
+                                in_v++;
+                                result++;
+                            };                           
+                        }
+                        
+
+                        // Incrementing by the cross over length
+                        
+                    }
+                }
+            }
+            else if (line_1_direction == horizontal) // line_1_index is horizontal, line_2_index is verticle. Verifying they cross
+            {
+                if (line_2_x_1 >= line_1_x_1 && line_2_x_1 <= line_1_x_2 && line_1_y_1 >= line_2_y_1 && line_1_y_1 <= line_2_y_2)
+                {
+                    uint16_t difference = line_1_x_2 - line_1_x_1;
+                    if (set_flag(flags, difference >> 3, _BV(difference % 8))) {
+                        x_h++;
+                        result++;
+                    }                    
+                }
+            }
+            else  // line_1_index is verticle, line_2_index is horizontal. Verifying they cross
+            {
+                if (line_1_x_1 >= line_2_x_1 && line_1_x_1 <= line_2_x_2 && line_2_y_1 >= line_1_y_1 && line_2_y_1 <= line_1_y_2)
+                {
+                    uint16_t difference = line_1_y_2 - line_2_y_1;
+                    if (set_flag(flags, difference >> 3, _BV(difference % 8))) {
+                        x_v++;
+                        result++;
+                    }
+
+                    // add(line_2_x_1, line_1_y_1, output);
                 }
             }
         }
