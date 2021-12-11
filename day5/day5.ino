@@ -4,7 +4,7 @@
  Author:	Tosso
 */
 
-#include "input_test.h"
+#include "input.h"
 #include <avr/pgmspace.h>
 
 #define SERIAL_BUFFER_SIZE 8
@@ -86,7 +86,7 @@ static inline int16_t process_range(
                     for (size_t i = overlap_index; i <= overlap_length; i++)
                     {
                         result += set_flag(flags, i >> 3, _BV(i % 8));
-                    }                    
+                    }
                 }
             }
         }
@@ -197,12 +197,13 @@ static inline int16_t process_range_complete(
                     for (size_t i = overlap_index; i <= overlap_length; i++)
                     {
                         result += set_flag(flags, i >> 3, _BV(i % 8));
-                    }                    
+                    }
                 }
             }
             else
             {
-                if (abs(line_2_x_1 - line_1_x_1) == abs(line_2_y_1 - line_1_y_1) && (line_1_x_1 <= line_2_x_2 && line_1_x_2 >= line_2_x_1))
+               
+                if ((line_2_x_1 - line_1_x_1) == (line_1_direction == diagonal_up ? -1 : 1) * (line_2_y_1 - line_1_y_1) && (line_1_x_1 <= line_2_x_2 && line_1_x_2 >= line_2_x_1))
                 {
                     int16_t overlap_minimum = max(line_1_x_1, line_2_x_1);
                     int16_t overlap_index = overlap_minimum - line_1_x_1;
@@ -234,55 +235,72 @@ static inline int16_t process_range_complete(
         }
         else if ((line_1_direction == diagonal_down || line_1_direction == diagonal_up) && line_2_direction == horizontal) // line_1_index is verticle, line_2_index is horizontal. Verifying they cross
         {
-            int16_t cross_point = (line_1_direction == diagonal_up ? -1 : 1) * (line_2_y_1 - line_1_y_1) + line_1_x_1;
+            int16_t cross_point = (line_1_x_1) + (line_1_direction == diagonal_up ? -1 : 1) * (line_2_y_1 - line_1_y_1);
             
-            if (cross_point >= line_2_x_1 && cross_point <= line_2_x_2)
+            if (cross_point >= line_2_x_1 && cross_point <= line_2_x_2 && cross_point >= line_1_x_1 && cross_point <= line_1_x_2)
             {
-                int16_t difference = abs(cross_point - line_1_x_1);                
-                result += set_flag(flags, difference >> 3, _BV(difference % 8));
+                int16_t difference = cross_point - line_1_x_1;
+                if (set_flag(flags, difference >> 3, _BV(difference % 8)))
+                {
+                    result ++;// set_flag(flags, difference >> 3, _BV(difference % 8));
+                }
             }
         }
         else if ((line_1_direction == diagonal_down || line_1_direction == diagonal_up) && line_2_direction == verticle) // line_1_index is verticle, line_2_index is horizontal. Verifying they cross
         {
-            int16_t cross_point = (line_1_direction == diagonal_up ? -1 : 1) * (line_2_x_1 - line_1_x_1) + line_1_y_1;
+            int16_t cross_point = (line_1_y_1) + (line_1_direction == diagonal_up ? -1 : 1) * (line_2_x_1 - line_1_x_1);
             
-            if (cross_point >= line_2_y_1 && cross_point <= line_2_y_2)
+            if (cross_point >= line_2_y_1 && cross_point <= line_2_y_2 && line_1_x_1 <= line_2_x_1 && line_1_x_2 >= line_2_x_1)
             {
-                int16_t difference = abs(cross_point - line_1_y_1);
+                int16_t difference = line_2_x_1 - line_1_x_1;
                 result += set_flag(flags, difference >> 3, _BV(difference % 8));
             }
         }
         else if (line_1_direction == diagonal_down && line_2_direction == diagonal_up) // line_1_index is verticle, line_2_index is horizontal. Verifying they cross
         {
-            int16_t height_difference = line_1_y_1 - line_2_y_1;
-            if (height_difference > 0 && !(height_difference & 1))
+            
+            int16_t height_difference = (line_2_y_1 - line_1_y_1) + (line_2_x_1 - line_1_x_1);
+            if (height_difference >= 0 && (height_difference & 1) == 0)
+            {
+                int16_t index = height_difference >> 1;
+                int16_t cross_point = index + line_1_x_1;
+                if (cross_point >= line_1_x_1 && cross_point <= line_1_x_2 && cross_point >= line_2_x_1 && cross_point <= line_2_x_2)
+                {
+                    result += set_flag(flags, index >> 3, _BV(index % 8));
+                }
+            }
+        }
+        else if (line_1_direction == diagonal_up && line_2_direction == diagonal_down) // line_1_index is verticle, line_2_index is horizontal. Verifying they cross
+        {
+            int16_t height_difference = (line_1_y_1 - line_2_y_1) + (line_1_x_1 - line_2_x_1);
+            if (height_difference >= 0 && !(height_difference & 1))
             {
                 int16_t index = (height_difference >> 1);
-                int16_t cross_point = index + line_1_x_1;
-                if (cross_point >= line_2_x_1 && cross_point <= line_2_x_2)
+                int16_t cross_point = index + line_2_x_1;
+                if (cross_point >= line_1_x_1 && cross_point <= line_1_x_2 && cross_point >= line_2_x_1 && cross_point <= line_2_x_2)
                 {
+                    index = cross_point - line_1_x_1;
                     result += set_flag(flags, index >> 3, _BV(index % 8));
                 }
             }
         }
         else if (line_1_direction == horizontal && (line_2_direction == diagonal_down || line_2_direction == diagonal_up)) // line_1_index is verticle, line_2_index is horizontal. Verifying they cross
         {
-            int16_t cross_point = (line_2_direction == diagonal_up ? -1 : 1) * (line_1_y_1 - line_2_y_1) + line_2_x_1;
+            int16_t cross_point = (line_2_x_1) + (line_2_direction == diagonal_up ? -1 : 1) * (line_1_y_1 - line_2_y_1);
             
-            if (cross_point >= line_1_x_1 && cross_point <= line_1_x_2)
+            if (cross_point >= line_1_x_1 && cross_point <= line_1_x_2 && cross_point >= line_2_x_1 && cross_point <= line_2_x_2)
             {
+                
                 int16_t difference = cross_point - line_1_x_1;
                 result += set_flag(flags, difference >> 3, _BV(difference % 8));
             }
         }
         else
         {
-            int16_t cross_point = (line_2_direction == diagonal_up ? -1 : 1) * (line_1_x_1 - line_2_x_1) + line_2_y_1;
-            if (cross_point >= line_1_y_1 && cross_point <= line_1_y_2)
+            int16_t cross_point = (line_2_y_1) + (line_2_direction == diagonal_up ? -1 : 1) * (line_1_x_1 - line_2_x_1);
+            if (cross_point >= line_1_y_1 && cross_point <= line_1_y_2 && line_2_x_1 <= line_1_x_1 && line_2_x_2 >= line_1_x_1)
             {
-                
-
-                int16_t difference = abs(cross_point - line_1_y_1);
+                int16_t difference = cross_point - line_1_y_1;
                 result += set_flag(flags, difference >> 3, _BV(difference % 8));
             }
         }
@@ -438,15 +456,6 @@ int16_t process_report(const int16_t input[], const int16_t size)
             line_1_y_2 ^= line_1_y_1;
             line_1_y_1 ^= line_1_y_2;
         }
-
-        // Serial.print(F("line_1_x_1: "));
-        // Serial.print(line_1_x_1);
-        // Serial.print(F(" line_1_y_1: "));
-        // Serial.print(line_1_y_1);
-        // Serial.print(F(" line_1_x_2: "));
-        // Serial.print(line_1_x_2);
-        // Serial.print(F(" line_1_y_2: "));
-        // Serial.println(line_1_y_2);
 
         // Getting the line orientation
         line_direction line_1_direction = line_1_x_1 == line_1_x_2 ? verticle : horizontal;
